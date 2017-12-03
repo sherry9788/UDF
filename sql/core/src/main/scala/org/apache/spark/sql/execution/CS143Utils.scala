@@ -129,7 +129,13 @@ object CS143Utils {
     */
   def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = {
     /* IMPLEMENT THIS METHOD */
-    null
+    var udf: ScalaUdf = null
+    for(i <- 0 to expressions.size-1){
+      if (expressions(i).isInstanceOf[ScalaUdf]){
+        udf = expressions(i).asInstanceOf[ScalaUdf]
+      }
+    }
+    udf
   }
 
   /**
@@ -149,6 +155,7 @@ object CS143Utils {
                                expressions: Seq[Expression],
                                inputSchema: Seq[Attribute]): (Iterator[Row] => Iterator[Row]) = {
     // Get the UDF from the expressions.
+    // implement
     val udf: ScalaUdf = CS143Utils.getUdfFromExpressions(expressions)
 
     udf match {
@@ -167,6 +174,7 @@ object CS143Utils {
         val preUdfExpressions = expressions.slice(0, udfIndex)
         val postUdfExpressions = expressions.slice(udfIndex + 1, expressions.size)
 
+        // implement
         CachingIteratorGenerator(udf.children, udf, preUdfExpressions, postUdfExpressions, inputSchema)
       }
     }
@@ -225,12 +233,25 @@ object CachingIteratorGenerator {
 
       def hasNext() = {
         /* IMPLEMENT THIS METHOD */
-        false
+        input.hasNext
       }
 
       def next() = {
         /* IMPLEMENT THIS METHOD */
-        null
+        val row = input.next
+        val index = cacheKeyProjection.apply(row)
+        var cachedudf = cache.get(index)
+
+        if (cachedudf == null){
+          val udfarray: JavaArrayList[Any] = new JavaArrayList()
+          preUdfProjection.apply(row).iterator.foreach(i => {udfarray.add(i)})
+          udfProject.apply(row).iterator.foreach(i => {udfarray.add(i)})
+          postUdfProjection.apply(row).iterator.foreach(i => {udfarray.add(i)})
+
+          cachedudf = Row.fromSeq(udfarray.toArray)
+          cache.put(index, cachedudf)
+        }
+        cachedudf
       }
     }
   }
@@ -253,11 +274,14 @@ object AggregateIteratorGenerator {
 
       def hasNext() = {
         /* IMPLEMENT THIS METHOD */
-        false
+        input.hasNext
       }
 
       def next() = {
         /* IMPLEMENT THIS METHOD */
+//        val row = input.next
+//        val aggregatearray: JavaArrayList[Any] = new JavaArrayList()
+//        postAggregateProjection.apply(row).iterator.foreach(i => {aggregatearray.add(i)})
         null
       }
     }

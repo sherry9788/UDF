@@ -53,11 +53,12 @@ protected [sql] final class GeneralDiskHashedRelation(partitions: Array[DiskPart
 
   override def getIterator() = {
     /* IMPLEMENT THIS METHOD */
-    null
+    partitions.iterator
   }
 
   override def closeAllPartitions() = {
     /* IMPLEMENT THIS METHOD */
+    partitions.foreach((p:DiskPartition) => p.closePartition())
   }
 }
 
@@ -80,6 +81,16 @@ private[sql] class DiskPartition (
     */
   def insert(row: Row) = {
     /* IMPLEMENT THIS METHOD */
+    if (inputClosed){
+      throw new SparkException("Cannot write to file after closing input.")
+    }
+
+    data.add(row)
+    if (measurePartitionSize() > blockSize){
+      spillPartitionToDisk()
+      data.clear()
+    }
+
   }
 
   /**
@@ -123,12 +134,25 @@ private[sql] class DiskPartition (
 
       override def next() = {
         /* IMPLEMENT THIS METHOD */
-        null
+        if (currentIterator.hasNext){
+          currentIterator.next()
+        }
+        else{
+          null
+        }
       }
 
       override def hasNext() = {
         /* IMPLEMENT THIS METHOD */
-        false
+        if (currentIterator.hasNext) {
+          true
+        }
+        else if (chunkSizeIterator.hasNext) {
+          fetchNextChunk()
+        }
+        else{
+          false
+        }
       }
 
       /**
@@ -139,7 +163,12 @@ private[sql] class DiskPartition (
         */
       private[this] def fetchNextChunk(): Boolean = {
         /* IMPLEMENT THIS METHOD */
-        false
+//        if (!chunkSizeIterator.hasNext){
+//          return false
+//        }
+        byteArray = CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray)
+        currentIterator = CS143Utils.getListFromBytes(byteArray).iterator().asScala
+        return true
       }
     }
   }
@@ -153,6 +182,11 @@ private[sql] class DiskPartition (
     */
   def closeInput() = {
     /* IMPLEMENT THIS METHOD */
+    if (!data.isEmpty){
+      spillPartitionToDisk()
+      data.clear()
+    }
+    outStream.close()
     inputClosed = true
   }
 
@@ -190,6 +224,19 @@ private[sql] object DiskHashedRelation {
               size: Int = 64,
               blockSize: Int = 64000) = {
     /* IMPLEMENT THIS METHOD */
-    null
+    val diskarray: JavaArrayList[DiskPartition] = new JavaArrayList[DiskPartition]
+    for ( i<-0 to size-1 ){
+      diskarray.add(new DiskPartition("p" + i, blockSize))
+    }
+
+    input.foreach((row:Row) => {
+      val index = (keyGenerator(row).hashCode())%size
+      diskarray.get(index).insert(row)})
+
+    for ( i<-0 to size-1 ){
+      diskarray.get(i).closeInput();
+    }
+
+    new GeneralDiskHashedRelation(diskarray.toArray(new Array[DiskPartition](size)))
   }
 }
