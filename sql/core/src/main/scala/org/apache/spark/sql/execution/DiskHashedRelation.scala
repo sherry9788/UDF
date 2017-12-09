@@ -163,9 +163,9 @@ private[sql] class DiskPartition (
         */
       private[this] def fetchNextChunk(): Boolean = {
         /* IMPLEMENT THIS METHOD */
-//        if (!chunkSizeIterator.hasNext){
-//          return false
-//        }
+        if (!chunkSizeIterator.hasNext){
+          return false
+        }
         byteArray = CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray)
         currentIterator = CS143Utils.getListFromBytes(byteArray).iterator().asScala
         return true

@@ -271,6 +271,7 @@ object AggregateIteratorGenerator {
 
     new Iterator[Row] {
       val postAggregateProjection = CS143Utils.getNewProjection(resultExpressions, inputSchema)
+      private[this] val joinedRow = new JoinedRow4
 
       def hasNext() = {
         /* IMPLEMENT THIS METHOD */
@@ -279,10 +280,13 @@ object AggregateIteratorGenerator {
 
       def next() = {
         /* IMPLEMENT THIS METHOD */
-//        val row = input.next
-//        val aggregatearray: JavaArrayList[Any] = new JavaArrayList()
-//        postAggregateProjection.apply(row).iterator.foreach(i => {aggregatearray.add(i)})
-        null
+        val currentEntry :(Row, AggregateFunction) = input.next
+        val currentGroup = currentEntry._1
+        val currentBuffer = currentEntry._2
+        val aggregateResult = new GenericMutableRow(1)
+        aggregateResult(0) = currentBuffer.eval(EmptyRow)
+        postAggregateProjection(joinedRow(aggregateResult, currentGroup))
+
       }
     }
   }
